@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "timebase.h"
 #include "osKernel.h"
+#include "osQueue.h"
 
 #define		QUANTA 	10
 
@@ -17,6 +18,11 @@ void valve_close(void);
 
 int32_t semaphore1, semaphore2;
 
+typedef struct {
+	uint32_t timestamp;
+	uint32_t value;
+} SensorData_t;
+
 void task0(void){
 	while(1){
 		Task0_Profiler++;
@@ -25,19 +31,33 @@ void task0(void){
 }
 
 void task1(void){
+	/* Producer : builds a SensorData message and sends to the queue*/
+	SensorData_t data;
+
 	while(1){
 		osSemaphoreWait(&semaphore1);
+		
+		data.timestamp = Task1_Profiler++;
+		data.value = 42;
+
+		osQueueSend(&sensorQueue, &data);
 		motor_run();
+
 		osSemaphoreSet(&semaphore1);
 	}
 }
 
 void task2(void){
+	/* Consumer : receives SensorData message from the queue and process it*/
+	SensorData_t data;
 	while(1){
 		osSemaphoreWait(&semaphore2);
+		
+		osQueueReceive(&sensorQueue, &data);
+		printf("Received data: timestamp = %lu, value = %lu\n", data.timestamp, data.value);
+
 		valve_open();
 		osSemaphoreSet(&semaphore1);
-
 	}
 }
 
@@ -59,6 +79,9 @@ int main(){
 	osSemaphoreInit(&semaphore1, 1);
 	osSemaphoreInit(&semaphore2, 0);
 
+	/*Initialize queue*/
+	osQueueInit(&sensorQueue, sizeof(SensorData_t));
+
 	/* Initialize Kernel*/
 	osKernelInit();
 
@@ -73,6 +96,9 @@ void TIM2_IRQHandler(){
 	/*Clear update interrupt flag*/
 	TIM2->SR &= ~SR_UIF;
 
+	/* Signal task2 via semaphore, task2 will then drain the queue */
+	osSemaphoreSet(&semaphore2);
+	
 	/*Do something*/
 	pTask2_Profiler++;
 }
