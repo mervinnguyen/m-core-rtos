@@ -5,7 +5,7 @@
 
 #define BUS_FREQ		16000000
 
-#define STACK_CANARY 	0xDEADBEEF
+#define STACK_CANARY 	0xDEADBEEFU
 
 #define CTRL_ENABLE		(1u << 0)
 #define CTRL_TICKINT	(1u << 1)
@@ -20,7 +20,7 @@
 #define INTCTRL			(*((volatile uint32_t*)0xE000ED04))
 #define PENDSTSET		(1u << 26)
 
-uint32_t period_tick;
+volatile uint32_t period_tick;
 uint32_t MILLIS_PRESCALER;
 
 typedef struct tcb {
@@ -35,6 +35,9 @@ tcbType *currentPt;
 int32_t TCB_STACK[NUM_OF_THREADS][STACKSIZE];
 
 void osKernelStackInit(int i){
+	TCB_STACK[i][0] = STACK_CANARY;	/*Stack canary for debugging purpose*/
+
+	//
 	tcbs[i].stackPt = &TCB_STACK[i][STACKSIZE - 16];	/*Stack Pointer*/
 
 	/*Set bit21 (T-bit) in PSR to 1, to operate in Thumb Mode*/
@@ -214,6 +217,12 @@ void osThreadYield(void){
 }
 
 void osSchedulerRoundRobin(void){
+	//Stack overflow check
+	if (TCB_STACK[currentPt - tcbs][0] != STACK_CANARY) {
+		__disable_irq();
+		while(1);
+	}
+
 	if ((++period_tick) == PERIOD){
 		(*task3)();
 
