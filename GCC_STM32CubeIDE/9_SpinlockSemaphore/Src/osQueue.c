@@ -19,4 +19,12 @@ void osQueueSend(osQueue_t *q, const void *item) {
         __enable_irq();   /*Release IRQ and wait*/
         osThreadYield();
     }
+
+    /*Copy item into head slot and advance */
+    memcpy(q->buf[q->head], item, q->itemSize);
+    q->head = (q->head + 1) % QUEUE_SIZE;
+    q->count++;
+    
+    __enable_irq();
 }
+
