@@ -24,7 +24,25 @@ void osQueueSend(osQueue_t *q, const void *item) {
     memcpy(q->buf[q->head], item, q->itemSize);
     q->head = (q->head + 1) % QUEUE_SIZE;
     q->count++;
-    
+
     __enable_irq();
 }
 
+void osQueueReceive(osQueue_t *q, void *item) {
+    /* Wait until there is data */
+    while(1) {
+        __disable_irq();
+        if (q->count > 0) {
+            break;          /*Data available, hold IRQ off */
+        }
+        __enable_irq();   /*Release IRQ and wait*/
+        osThreadYield();
+    }
+
+    /* Copy item out of tail slot and advance */
+    memcpy(item, q->buf[q->tail], q->itemSize);
+    q->tail = (q->tail + 1) % QUEUE_SIZE;
+    q->count--;
+
+    __enable_irq();
+}
