@@ -5,6 +5,8 @@
 
 #define BUS_FREQ		16000000
 
+#define STACK_CANARY 	0xDEADBEEF
+
 #define CTRL_ENABLE		(1u << 0)
 #define CTRL_TICKINT	(1u << 1)
 #define CTRL_CLCKSRC	(1u << 2)
